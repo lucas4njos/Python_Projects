@@ -1,0 +1,111 @@
+#PDF_Filter
+#Lucas G. dos Anjos
+#13/09/2023
+#GitHub: lucas4njos
+
+from PyPDF2 import PdfReader
+import re
+import time
+import glob, os
+from pathlib import Path
+
+#This is the name of the .txt file that will be created
+#Esse é o nome do arquivo .txt que será criado
+txt_filename = str(time.time()) + ".txt"
+
+#Filter_PDF is responsible for filtering the PDF files.
+#Filter_PDF é responsável por filtrar os arquivos PDF.
+def filter_PDF(file_name):
+    reader = PdfReader(file_name)
+    number_of_pages = len(reader.pages)
+    #reader.pages[0].extract_text returns a string with all the text of page 1 of current pdf file
+    #reader.pages[1].extract_text returns a string with all the text of page 2 of current pdf file... and so on
+    # reader.pages[0].extract_text retorna uma string com o texto da página 1 do atual arquivo pdf
+    # reader.pages[1].extract_text retorna uma string com o texto da página 2 do atual arquivo pdf
+
+    page = reader.pages[0]
+    texto = page.extract_text()
+
+    page2 = reader.pages[1].extract_text()
+    def find_text(str1):
+        index = texto.find(str1)
+        return(index)
+
+    # the variables inside this function were necessary for a specific pdf type. Feel free to personalize the code
+    # with your own variables from now on :)
+    #as variáveis dentro desta função foram necessárias para um tipo de pdf específico, por isso sinta-se livre para
+    #personalizar o código com suas variáveis a partir daqui :)
+
+    log_nome = texto[find_text("") : find_text("EIRELI") + 6].strip()
+
+    log_cnpj = texto[find_text("CNPJ :") + 7: find_text("CNPJ :") + 21].strip()
+
+    numero = texto[find_text("INSC.SUFRAMA DO DESTINATÁRIO") + 28: find_text("INSC.SUFRAMA DO DESTINATÁRIO") + 50]
+    numero = numero.split(" ")
+    numero = numero[3].strip()
+
+    remetente_mun = texto[find_text("ENDEREÇO: ") + 22: find_text(" CEP :")].split()
+    municipio_do_remetente = remetente_mun[len(remetente_mun) - 1]
+    remetente_mun = municipio_do_remetente
+
+    remetente_cnpj = texto[find_text("CNPJ/CPF : ") + 11: find_text("INSCR.ESTADUAL :")].strip()
+
+    destinatario_mun = texto[find_text("DESTINATÁRIO:") : find_text("EXPEDIDOR:")]
+
+    destinatario_cnpj = destinatario_mun[destinatario_mun.find("CNPJ/CPF :") + 11: destinatario_mun.find("INSCR.ESTADUAL :")].strip()
+
+    destinatario_mun = destinatario_mun[destinatario_mun.find("ENDEREÇO:") + 22: destinatario_mun.find("CEP :")].split()
+    municipio_do_remetente = destinatario_mun[len(destinatario_mun) - 1]
+    destinatario_mun = municipio_do_remetente
+
+
+    valor_a_receber = texto[find_text("VALOR A RECEBER (R$)") + 20: find_text("FRETE")].split()
+    valor_a_receber = valor_a_receber[0]
+
+    num_documento = texto[find_text("TPDOC CNPJ/CPF EMITENTE SÉRIE/NRO.DOCUMENTO TPDOC CNPJ/CPF EMITENTE SÉRIE/NRO.DOCUMENTO") + 87 : find_text("OBSERVAÇÕES GERAIS")].split()
+
+    counter = 1
+    numeros = ""
+
+    for i in num_documento:
+        if counter % 3 == 0:
+            i += ", "
+            numeros += i
+
+        counter += 1
+
+    valor_da_receita = page2[page2.find("08 - Valor Total") + 17: page2.find("06 - Observações")].strip()
+
+    #This is where the .txt file will be created and populated with the variables we worked above
+    #Esta é a parte que irá criar um .txt na mesma página e preenchê-lo com as variáveis que trabalhamos acima
+    with open(txt_filename, 'a') as f:
+        f.write(f"CNPJ da Transportadora: {log_cnpj} \n")
+        f.write(f"Número: {numero} \n")
+        f.write(f"Município do Remetente: {remetente_mun}\n")
+        f.write(f"CNPJ do Remetente: {remetente_cnpj}\n")
+        f.write(f"Município do Destinatário: {destinatario_mun}\n")
+        f.write(f"CNPJ do Destinatário: {destinatario_cnpj}\n")
+        f.write(f"Valor a Receber: {valor_a_receber}\n")
+        f.write(f"SÉRIE/NRO.DOCUMENTO: {numeros}\n")
+        f.write(f"Valor da Receita: {valor_da_receita}\n\n")
+
+#Necessary functions to find all the pdf files that are in the same folder as main.py
+#No need to change
+
+#Funções necessárias para encontrar todos os arquivos PDF que estiverem na mesma pasta de main.py
+#Não é necessário alterar
+def iterate_pdf_documents(folder_path):
+    folder = Path(folder_path)
+    pdf_files = folder.glob("**/*.pdf")
+    for pdf_file in pdf_files:
+        process_single_file(pdf_file)
+
+def process_single_file(path: Path):
+    with open(txt_filename, 'a') as f:
+        f.write('*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-\n\n')
+        f.write(str(path))
+        f.write('\n\n')
+    filter_PDF(path)
+
+current_dir = "."
+iterate_pdf_documents(current_dir)
